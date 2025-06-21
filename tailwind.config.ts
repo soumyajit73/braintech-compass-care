@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -25,32 +26,41 @@ export default {
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
 				primary: {
-					DEFAULT: 'hsl(var(--primary))',
-					foreground: 'hsl(var(--primary-foreground))'
+					DEFAULT: '#3B82F6',
+					foreground: '#FFFFFF',
+					50: '#EFF6FF',
+					100: '#DBEAFE',
+					500: '#3B82F6',
+					600: '#2563EB',
+					700: '#1D4ED8'
 				},
 				secondary: {
-					DEFAULT: 'hsl(var(--secondary))',
-					foreground: 'hsl(var(--secondary-foreground))'
+					DEFAULT: '#8B5CF6',
+					foreground: '#FFFFFF',
+					50: '#F5F3FF',
+					100: '#EDE9FE',
+					500: '#8B5CF6',
+					600: '#7C3AED'
 				},
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
 					foreground: 'hsl(var(--destructive-foreground))'
 				},
 				muted: {
-					DEFAULT: 'hsl(var(--muted))',
-					foreground: 'hsl(var(--muted-foreground))'
+					DEFAULT: '#F8FAFC',
+					foreground: '#64748B'
 				},
 				accent: {
-					DEFAULT: 'hsl(var(--accent))',
-					foreground: 'hsl(var(--accent-foreground))'
+					DEFAULT: '#60A5FA',
+					foreground: '#1E293B'
 				},
 				popover: {
 					DEFAULT: 'hsl(var(--popover))',
 					foreground: 'hsl(var(--popover-foreground))'
 				},
 				card: {
-					DEFAULT: 'hsl(var(--card))',
-					foreground: 'hsl(var(--card-foreground))'
+					DEFAULT: '#FFFFFF',
+					foreground: '#1E293B'
 				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
@@ -61,6 +71,14 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				medical: {
+					blue: '#3B82F6',
+					purple: '#8B5CF6',
+					light: '#F0F9FF',
+					success: '#10B981',
+					warning: '#F59E0B',
+					error: '#EF4444'
 				}
 			},
 			borderRadius: {
@@ -84,11 +102,33 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'brain-pulse': {
+					'0%, 100%': {
+						opacity: '1',
+						transform: 'scale(1)'
+					},
+					'50%': {
+						opacity: '0.8',
+						transform: 'scale(1.05)'
+					}
+				},
+				'fade-in': {
+					'0%': {
+						opacity: '0',
+						transform: 'translateY(10px)'
+					},
+					'100%': {
+						opacity: '1',
+						transform: 'translateY(0)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'brain-pulse': 'brain-pulse 2s ease-in-out infinite',
+				'fade-in': 'fade-in 0.5s ease-out'
 			}
 		}
 	},
