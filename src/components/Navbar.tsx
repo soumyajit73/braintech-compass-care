@@ -1,11 +1,37 @@
-
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Calendar, Home, User, Users } from 'lucide-react';
 
 const Navbar = () => {
-  const [userRole, setUserRole] = useState<'patient' | 'doctor' | 'admin' | null>('patient'); // Mock user role
+  const [userRole, setUserRole] = useState<'patient' | 'doctor' | 'admin' | null>(null);
+  const [userName, setUserName] = useState<string>('');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check if user is logged in on component mount
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    
+    if (token && userData) {
+      const user = JSON.parse(userData);
+      setUserRole(user.role);
+      setUserName(user.fullName);
+    }
+  }, []);
+
+  const handleLogout = () => {
+    // Clear localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    
+    // Reset state
+    setUserRole(null);
+    setUserName('');
+    
+    // Navigate to home or auth page
+    navigate('/');
+  };
 
   return (
     <nav className="bg-white/95 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50 medical-shadow">
@@ -38,12 +64,16 @@ const Navbar = () => {
 
           <div className="flex items-center space-x-4">
             {userRole ? (
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600 capitalize">{userRole}</span>
+              <div className="flex items-center space-x-3">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-800">{userName}</p>
+                  <p className="text-xs text-gray-500 capitalize">{userRole}</p>
+                </div>
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => setUserRole(null)}
+                  onClick={handleLogout}
+                  className="ml-2"
                 >
                   Logout
                 </Button>

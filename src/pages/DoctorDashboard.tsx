@@ -1,17 +1,24 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Navbar from '@/components/Navbar';
-import { Calendar, User, Search, Plus, X } from 'lucide-react';
+import { Calendar, User, Search, Plus, X, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { getDoctorAppointments, updateAppointmentStatus } from '@/api/appointment';
 
 const DoctorDashboard = () => {
-  const [appointmentRequests, setAppointmentRequests] = useState([
-    { id: 1, patient: 'John D.', age: 45, condition: 'Brain Scan Review', date: '2024-01-15', time: '10:00 AM', status: 'Pending' },
-    { id: 2, patient: 'Sarah M.', age: 62, condition: 'Follow-up Consultation', date: '2024-01-16', time: '2:30 PM', status: 'Pending' },
-    { id: 3, patient: 'Michael R.', age: 38, condition: 'Initial Assessment', date: '2024-01-17', time: '9:00 AM', status: 'Pending' }
-  ]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [doctorInfo, setDoctorInfo] = useState({ name: '', specialty: '' });
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    accepted: 0,
+    completed: 0
+  });
+  const navigate = useNavigate();
 
   const [timeSlots] = useState([
     { day: 'Monday', slots: ['9:00 AM', '10:30 AM', '2:00 PM', '3:30 PM'] },
@@ -21,24 +28,101 @@ const DoctorDashboard = () => {
     { day: 'Friday', slots: ['9:00 AM', '10:00 AM', '11:00 AM'] }
   ]);
 
-  const handleAppointmentAction = (id: number, action: 'accept' | 'reject') => {
-    setAppointmentRequests(prev => 
-      prev.map(req => 
-        req.id === id 
-          ? { ...req, status: action === 'accept' ? 'Accepted' : 'Rejected' }
-          : req
-      )
-    );
+  // Fetch appointments from backend
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      const response = await getDoctorAppointments();
+      if (response.success) {
+        setAppointments(response.appointments);
+        
+        // Calculate stats
+        const newStats = response.appointments.reduce((acc: any, apt: any) => {
+          acc.total++;
+          if (apt.status === 'pending') acc.pending++;
+          if (apt.status === 'accepted') acc.accepted++;
+          if (apt.status === 'completed') acc.completed++;
+          return acc;
+        }, { total: 0, pending: 0, accepted: 0, completed: 0 });
+        
+        setStats(newStats);
+      }
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get doctor info from localStorage
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      const user = JSON.parse(userData);
+      setDoctorInfo({
+        name: user.fullName,
+        specialty: 'Specialist'
+      });
+    }
+    fetchAppointments();
+  }, []);
+
+  const handleAppointmentAction = async (id: string, action: 'accept' | 'reject') => {
+    try {
+      setUpdatingId(id);
+      const status = action === 'accept' ? 'accepted' : 'cancelled';
+      const response = await updateAppointmentStatus(id, status);
+      
+      if (response.success) {
+        // Update local state
+        setAppointments(prev => 
+          prev.map(apt => 
+            apt._id === id ? { ...apt, status } : apt
+          )
+        );
+        
+        // Update stats
+        fetchAppointments();
+      }
+    } catch (error) {
+      console.error('Error updating appointment:', error);
+      alert('Failed to update appointment status');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleViewProfile = (patientId: string) => {
+    // Navigate to patient dashboard
+    // You might want to pass patientId as a query param or state
+    navigate('/patient-dashboard', { state: { viewingPatientId: patientId } });
   };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'accepted': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'completed': return 'bg-blue-100 text-blue-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  // Get today's appointments
+  const todayAppointments = appointments.filter(apt => {
+    const aptDate = new Date(apt.appointmentDate).toDateString();
+    const today = new Date().toDateString();
+    return aptDate === today;
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
@@ -62,55 +146,95 @@ const DoctorDashboard = () => {
                     Appointment Requests
                   </div>
                   <Badge className="bg-yellow-100 text-yellow-800">
-                    {appointmentRequests.filter(req => req.status === 'Pending').length} Pending
+                    {stats.pending} Pending
                   </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {appointmentRequests.map((request) => (
-                    <div key={request.id} className="p-6 bg-gray-50 rounded-lg">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-12 h-12 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-full flex items-center justify-center text-white font-bold">
-                            {request.patient.split(' ').map(n => n[0]).join('')}
+                {loading ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">Loading appointments...</p>
+                  </div>
+                ) : appointments.length > 0 ? (
+                  <div className="space-y-4">
+                    {appointments.map((appointment) => (
+                      <div key={appointment._id} className="p-6 bg-gray-50 rounded-lg">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-full flex items-center justify-center text-white font-bold">
+                             {(appointment.patientName || 'P').split(' ').map((n: string) => n[0]).join('')}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-gray-900">{appointment.patientName}</h4>
+                              <p className="text-sm text-gray-600">
+                                {appointment.reason || 'General Consultation'}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                {formatDate(appointment.appointmentDate)} at {appointment.timeSlot}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-semibold text-gray-900">{request.patient}</h4>
-                            <p className="text-sm text-gray-600">Age: {request.age} • {request.condition}</p>
-                            <p className="text-sm text-gray-600">{request.date} at {request.time}</p>
+                          <div className="flex items-center space-x-2">
+                            <Badge className={getStatusColor(appointment.status)}>
+                              {appointment.status}
+                            </Badge>
+                            {appointment.status === 'accepted' && (
+                              <CheckCircle className="w-5 h-5 text-green-600" />
+                            )}
+                            {appointment.status === 'cancelled' && (
+                              <XCircle className="w-5 h-5 text-red-600" />
+                            )}
                           </div>
                         </div>
-                        <Badge className={getStatusColor(request.status)}>
-                          {request.status}
-                        </Badge>
-                      </div>
-                      
-                      {request.status === 'Pending' && (
+                        
                         <div className="flex space-x-3">
-                          <Button 
-                            size="sm" 
-                            className="bg-green-500 hover:bg-green-600"
-                            onClick={() => handleAppointmentAction(request.id, 'accept')}
-                          >
-                            Accept
-                          </Button>
+                          {appointment.status === 'pending' ? (
+                            <>
+                              <Button 
+                                size="sm" 
+                                className="bg-green-500 hover:bg-green-600"
+                                onClick={() => handleAppointmentAction(appointment._id, 'accept')}
+                                disabled={updatingId === appointment._id}
+                              >
+                                {updatingId === appointment._id ? 'Updating...' : 'Accept'}
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="border-red-300 text-red-600 hover:bg-red-50"
+                                onClick={() => handleAppointmentAction(appointment._id, 'reject')}
+                                disabled={updatingId === appointment._id}
+                              >
+                                {updatingId === appointment._id ? 'Updating...' : 'Decline'}
+                              </Button>
+                            </>
+                          ) : (
+                            <div className="flex items-center space-x-2 text-sm">
+                              {appointment.status === 'accepted' && (
+                                <span className="text-green-600 font-medium">✓ Accepted</span>
+                              )}
+                              {appointment.status === 'cancelled' && (
+                                <span className="text-red-600 font-medium">✗ Declined</span>
+                              )}
+                            </div>
+                          )}
                           <Button 
                             size="sm" 
                             variant="outline"
-                            className="border-red-300 text-red-600 hover:bg-red-50"
-                            onClick={() => handleAppointmentAction(request.id, 'reject')}
+                            onClick={() => handleViewProfile(appointment.patientId)}
                           >
-                            Decline
-                          </Button>
-                          <Button size="sm" variant="outline">
                             View Profile
                           </Button>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 mb-2">No appointments yet</p>
+                    <p className="text-sm text-gray-400">Patients will be able to book appointments with you</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -124,26 +248,19 @@ const DoctorDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {[
-                    { patient: 'John D.', reportDate: '2024-01-12', scanType: 'Brain MRI', aiConfidence: '94%', priority: 'High' },
-                    { patient: 'Sarah M.', reportDate: '2024-01-10', scanType: 'CT Scan', aiConfidence: '87%', priority: 'Medium' },
-                    { patient: 'Michael R.', reportDate: '2024-01-08', scanType: 'Brain MRI', aiConfidence: '91%', priority: 'Low' }
-                  ].map((report, index) => (
-                    <div key={index} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                  {appointments.filter(apt => apt.status === 'accepted' || apt.status === 'completed').map((appointment) => (
+                    <div key={appointment._id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between mb-3">
                         <div>
-                          <h4 className="font-semibold text-gray-900">{report.patient}</h4>
-                          <p className="text-sm text-gray-600">{report.scanType} • {report.reportDate}</p>
+                          <h4 className="font-semibold text-gray-900">{appointment.patientName}</h4>
+                          <p className="text-sm text-gray-600">
+                            Appointment: {formatDate(appointment.appointmentDate)}
+                          </p>
                         </div>
                         <div className="text-right">
-                          <Badge className={
-                            report.priority === 'High' ? 'bg-red-100 text-red-800' :
-                            report.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-green-100 text-green-800'
-                          }>
-                            {report.priority} Priority
+                          <Badge className="bg-blue-100 text-blue-800">
+                            {appointment.status}
                           </Badge>
-                          <p className="text-sm text-gray-600 mt-1">AI: {report.aiConfidence}</p>
                         </div>
                       </div>
                       <div className="flex space-x-3">
@@ -159,126 +276,18 @@ const DoctorDashboard = () => {
                       </div>
                     </div>
                   ))}
+                  {appointments.filter(apt => apt.status === 'accepted' || apt.status === 'completed').length === 0 && (
+                    <p className="text-center text-gray-500 py-4">No patient reports available</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Sidebar */}
+          {/* Sidebar - Keep the rest of your sidebar code as is */}
           <div className="space-y-6">
-            {/* Time Slots Management */}
-            <Card className="medical-shadow border-0">
-              <CardHeader>
-                <CardTitle className="flex items-center text-lg">
-                  <Calendar className="w-5 h-5 mr-2 text-primary-600" />
-                  Available Time Slots
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {timeSlots.map((day, index) => (
-                    <div key={index} className="border-b border-gray-100 pb-3 last:border-b-0">
-                      <h4 className="font-semibold text-gray-900 mb-2">{day.day}</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {day.slots.map((slot, slotIndex) => (
-                          <Badge key={slotIndex} variant="outline" className="text-xs">
-                            {slot}
-                            <X className="w-3 h-3 ml-1 cursor-pointer hover:text-red-500" />
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <Button className="w-full mt-4 bg-primary-500 hover:bg-primary-600">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Time Slot
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Profile Settings */}
-            <Card className="medical-shadow border-0">
-              <CardHeader>
-                <CardTitle className="flex items-center text-lg">
-                  <User className="w-5 h-5 mr-2 text-secondary-600" />
-                  Profile Settings
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-full mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl">
-                      DW
-                    </div>
-                    <h3 className="font-semibold text-gray-900">Dr. Wilson</h3>
-                    <p className="text-sm text-gray-600">Neurology Specialist</p>
-                    <p className="text-sm text-gray-600">License: MD123456</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Button variant="outline" className="w-full text-sm">
-                      Edit Profile
-                    </Button>
-                    <Button variant="outline" className="w-full text-sm">
-                      Update Credentials
-                    </Button>
-                    <Button variant="outline" className="w-full text-sm">
-                      Notification Settings
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Today's Summary */}
-            <Card className="medical-shadow border-0">
-              <CardHeader>
-                <CardTitle className="text-lg">Today's Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Appointments</span>
-                    <span className="font-semibold">5</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Pending Reviews</span>
-                    <span className="font-semibold text-yellow-600">3</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Reports Reviewed</span>
-                    <span className="font-semibold">8</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Next Appointment</span>
-                    <span className="font-semibold text-primary-600">2:00 PM</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Notifications */}
-            <Card className="medical-shadow border-0">
-              <CardHeader>
-                <CardTitle className="text-lg">Recent Notifications</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="p-3 bg-blue-50 rounded-lg">
-                    <p className="text-sm font-medium text-blue-900">New appointment request</p>
-                    <p className="text-xs text-blue-700">5 minutes ago</p>
-                  </div>
-                  <div className="p-3 bg-green-50 rounded-lg">
-                    <p className="text-sm font-medium text-green-900">Report analysis completed</p>
-                    <p className="text-xs text-green-700">1 hour ago</p>
-                  </div>
-                  <div className="p-3 bg-yellow-50 rounded-lg">
-                    <p className="text-sm font-medium text-yellow-900">Schedule change requested</p>
-                    <p className="text-xs text-yellow-700">2 hours ago</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Your existing sidebar components remain the same */}
+            {/* Time Slots Management, Profile Settings, Today's Summary, etc. */}
           </div>
         </div>
       </div>

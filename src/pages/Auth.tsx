@@ -1,4 +1,4 @@
-
+import { registerUser, loginUser } from '@/api/auth';
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -47,29 +47,52 @@ const Auth = () => {
     return newErrors.length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!validateForm()) {
+    return;
+  }
+
+  try {
+    let response;
     
-    if (!validateForm()) {
-      return;
+    if (isLogin) {
+      // Login
+      response = await loginUser(formData.email, formData.password, role);
+    } else {
+      // Register
+      const userData = {
+        email: formData.email,
+        password: formData.password,
+        fullName: formData.fullName,
+        role,
+        ...(role === 'doctor' && { specialty: formData.specialty })
+      };
+      response = await registerUser(userData);
     }
 
-    // Mock authentication
-    console.log('Auth data:', { ...formData, role, isLogin });
-    
-    // Navigate to appropriate dashboard
-    switch (role) {
-      case 'patient':
-        navigate('/patient-dashboard');
-        break;
-      case 'doctor':
-        navigate('/doctor-dashboard');
-        break;
-      case 'admin':
-        navigate('/admin-dashboard');
-        break;
+    // Check if successful
+    if (response.success) {
+      // Navigate to appropriate dashboard
+      switch (role) {
+        case 'patient':
+          navigate('/patient-dashboard');
+          break;
+        case 'doctor':
+          navigate('/doctor-dashboard');
+          break;
+        case 'admin':
+          navigate('/admin-dashboard');
+          break;
+      }
+    } else {
+      setErrors([response.message || 'Something went wrong']);
     }
-  };
+  } catch (error: any) {
+    setErrors([error.message || 'Network error. Please try again.']);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex items-center justify-center p-4">
